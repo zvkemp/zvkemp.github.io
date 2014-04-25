@@ -3,11 +3,12 @@
 # ----------------------- #
 
 url: http://zvkemp.github.io
-title: My Octopress Blog
-subtitle: A blogging framework for hackers.
-author: Your Name
+title: zvkemp
+subtitle: a work in progress 
+author: Zach Kemp
 simple_search: false # https://www.google.com/search
 description:
+show_navigation: false
 
 # Default date format is "ordinal" (resulting in "July 22nd 2007")
 # You can customize the format as defined in
