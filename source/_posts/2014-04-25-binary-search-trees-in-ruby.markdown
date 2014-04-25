@@ -109,8 +109,6 @@ tree.insert(3)
 # => {10:{5:{3:nil|nil}|nil}|{15:nil|nil}}
 ```
 
-*I am aware this code repeats itself. A refactoring is imminent.*
-
 The next step is to determine whether our tree contains a given value. 
 This is where the Binary Search Tree has a reputation for speediness - unlike 
 iterating over every element of an array and checking for equality, the structure of the 
@@ -334,3 +332,8 @@ end
 It takes about 50% longer than just the binary tree search itself, which makes sense because it 
 traverses the tree twice (once to insert values and once to query them). It doesn't take twice as long,
 because we start with a small tree (a single node) and build it up gradually as the values are inserted.
+
+Here is the code in its entirety:
+
+{% gist 11305728 %}
+
