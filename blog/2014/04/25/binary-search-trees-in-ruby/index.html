@@ -87,6 +87,8 @@
 
 <p>Can we construct a binary search tree in Ruby that is faster than Ruby&rsquo;s native C-implemented Array class? (Spoilers: <em>yes.</em>)</p>
 
+<h2>Part 1: Implementation</h2>
+
 <p><em>My first implementation of this had an overarching <code>Tree</code> class, but it soon became clear that it&rsquo;s entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a <code>Node</code>. The tree will be implied.</em></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -247,7 +249,11 @@ and have the tree place the value wherever it should rightfully or leftfully go.
 
 <p><em>I am aware this code repeats itself. A refactoring is imminent.</em></p>
 
-<p>The next step is to determine whether our tree contains a given value. This is where the Binary Search Tree has a reputation for speediness &ndash; unlike iterating over every element of an array and checking for equality, the structure of the tree provides a sort of automatic index that points us to where the value <em>should</em> be, and then we can check if it&rsquo;s there. It&rsquo;ll look remarkably similar to our <code>insert</code> method:</p>
+<p>The next step is to determine whether our tree contains a given value.
+This is where the Binary Search Tree has a reputation for speediness &ndash; unlike
+iterating over every element of an array and checking for equality, the structure of the
+tree provides a sort of automatic index that points us to where the value <em>should</em> be,
+and then we can check if it&rsquo;s there. It&rsquo;ll look remarkably similar to our <code>insert</code> method:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -260,12 +266,16 @@ and have the tree place the value wherever it should rightfully or leftfully go.
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
 <span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
 </pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
 </span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1"># named include? to parallel Array#include?</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">include?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 </span><span class='line'>      <span class="k">case</span> <span class="n">value</span> <span class="o">&lt;=&gt;</span> <span class="n">v</span>
-</span><span class='line'>      <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">left</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-</span><span class='line'>      <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">right</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">left</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">right</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 </span><span class='line'>      <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="kp">true</span> <span class="c1"># the current node is equal to the value</span>
 </span><span class='line'>      <span class="k">end</span>
 </span><span class='line'>    <span class="k">end</span>
@@ -293,7 +303,7 @@ and have the tree place the value wherever it should rightfully or leftfully go.
 <span class='line-number'>15</span>
 </pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
 </span><span class='line'>  <span class="k">class</span> <span class="nc">EmptyNode</span>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">contains?</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">include?</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
 </span><span class='line'>      <span class="kp">false</span>
 </span><span class='line'>    <span class="k">end</span>
 </span><span class='line'>
@@ -389,13 +399,15 @@ and tell you whether or not it contains a given value. Let&rsquo;s check it out:
 <span class='line-number'>7</span>
 </pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">tree</span> <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>               <span class="c1">#=&gt; {10:{}|{}}</span>
 </span><span class='line'><span class="o">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="o">].</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">value</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span> <span class="c1">#=&gt; {10:{5:{3:{}|{}}|{}}|{15:{}|{}}}</span>
-</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
-</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
-</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="c1">#=&gt; false</span>
-</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>  <span class="c1">#=&gt; true</span>
-</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1">#=&gt; false</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="c1">#=&gt; false</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>  <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1">#=&gt; false</span>
 </span></code></pre></td></tr></table></div></figure>
 
+
+<h2>Part 2: Benchmarks</h2>
 
 <p>Let&rsquo;s benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
 1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
@@ -423,7 +435,7 @@ identical set of values.</p>
 </span><span class='line'>
 </span><span class='line'><span class="no">Benchmark</span><span class="o">.</span><span class="n">bm</span> <span class="k">do</span> <span class="o">|</span><span class="n">benchmark</span><span class="o">|</span>
 </span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;test_array include&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">test_array</span><span class="o">.</span><span class="n">include?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
-</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;binary tree search&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;binary tree search&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
 </span><span class='line'><span class="k">end</span>
 </span></code></pre></td></tr></table></div></figure>
 
@@ -433,7 +445,150 @@ test_array include 13.230000   0.020000  13.250000 ( 13.283172)
 binary tree search  0.140000   0.000000   0.140000 (  0.139983)
 </code></pre>
 
-<p>I have to say, I was a little surprised how much faster (~100x) this was.</p>
+<p>I have to say, I was a little surprised how much faster (~100x) this was. It makes sense when you think about the fact that
+to check if an element is included in the Array, Ruby needs to run an equality comparison for up to 5000 values 50000 times.
+That&rsquo;s a lot of overhead, and Arrays simply aren&rsquo;t optimized for this. Ruby has another built-in data structure that is
+explicitly designed for fast lookups of arbitrary values &mdash; the venerable <code>Hash</code>.
+Similar to a binary search tree, Ruby&rsquo;s hash tables follow a defined set of rules that guide it to the
+proper places in memory when setting and retrieving values. For an in-depth exploration of what makes Hashes fast, read Pat Shaughnessy&rsquo;s <em><a href="http://www.worldcat.org/title/ruby-under-a-microscope-an-illustrated-guide-to-ruby-internals/oclc/844728904&amp;referer=brief_results">Ruby Under a Microscope</a>.</em></p>
+
+<p>Let&rsquo;s rerun the benchmark again, but this time comparing hash lookups as well. For these purposes, it doesn&rsquo;t matter what the values
+are in the hash, so we&rsquo;ll just make them all <code>true</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">test_hash</span> <span class="o">=</span> <span class="no">Hash</span><span class="o">[</span><span class="n">test_array</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="o">[</span><span class="n">x</span><span class="p">,</span> <span class="kp">true</span><span class="o">]</span> <span class="p">}</span><span class="o">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Benchmark</span><span class="o">.</span><span class="n">bm</span> <span class="k">do</span> <span class="o">|</span><span class="n">benchmark</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;test_array include&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">test_array</span><span class="o">.</span><span class="n">include?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;binary tree search&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;test_hash lookup&quot;</span>  <span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="nb">hash</span><span class="o">.</span><span class="n">has_key?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<pre><code>                         user     system      total        real
+ test_array include 13.400000   0.020000  13.420000 ( 13.473588)
+ binary tree search  0.130000   0.000000   0.130000 (  0.129013)
+ test_hash lookup    0.000000   0.000000   0.000000 (  0.008119)
+</code></pre>
+
+<p>Ruby&rsquo;s native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.</p>
+
+<h2>Part 3: Additional methods</h2>
+
+<p>In order to convert arrays into binary trees and back again, let&rsquo;s introduce a few new methods. The first will be a module method:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">from_array</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+</span><span class='line'>    <span class="no">Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">first</span><span class="p">)</span><span class="o">.</span><span class="n">tap</span> <span class="k">do</span> <span class="o">|</span><span class="n">tree</span><span class="o">|</span>
+</span><span class='line'>      <span class="n">array</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">v</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">insert</span> <span class="n">v</span> <span class="p">}</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>from_array</code> simply assigns the root node of the tree as the first value of the array, then pushes
+all array values on in order. Converting back to an array is a simple matter of traversing the recursive tree.
+An interesting side effect is that if done in a particular way, this is equivalent to calling <code>.uniq.sort</code> on the original array (as far as I know,
+it&rsquo;s impossible to maintain the original order).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>      <span class="n">left</span><span class="o">.</span><span class="n">to_a</span> <span class="o">+</span> <span class="o">[</span><span class="n">value</span><span class="o">]</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">to_a</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">EmptyNode</span>
+</span><span class='line'>    <span class="c1"># unsurprisingly, an empty node returns an empty array</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>      <span class="o">[]</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In case it&rsquo;s not clear how the recursion works, here&rsquo;s what the array expansion looks like for a simple tree <code>{10:{5:{}|{}}|{15:{}|{}}}</code>:</p>
+
+<ol>
+<li>For both 5 and 15, <code>left.to_a</code> and <code>right.to_a</code> are <code>[]</code> (<code>EmptyNode#to_a</code>), so the results are <code>[5]</code> and <code>[15]</code> respectively</li>
+<li>For 10, <code>left.to_a</code> is <code>[5]</code> and <code>right.to_a</code> is <code>[15]</code>, giving <code>[5] + [10] + [15]</code> or <code>[5, 10, 15]</code></li>
+</ol>
+
+
+<p>We can test it on an example with more elements:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">array</span> <span class="o">=</span> <span class="o">[</span><span class="mi">51</span><span class="p">,</span> <span class="mi">88</span><span class="p">,</span> <span class="mi">62</span><span class="p">,</span> <span class="mi">68</span><span class="p">,</span> <span class="mi">98</span><span class="p">,</span> <span class="mi">93</span><span class="p">,</span> <span class="mi">51</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">91</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">34</span><span class="o">]</span>
+</span><span class='line'><span class="n">tree</span> <span class="o">=</span> <span class="no">Binary</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+</span><span class='line'><span class="c1"># =&gt; {51:{4:{}|{34:{}|{}}}|{88:{62:{}|{68:{67:{}|{}}|{}}}|{98:{93:{91:{}|{}}|{}}|{}}}}</span>
+</span><span class='line'><span class="n">tree</span><span class="o">.</span><span class="n">to_a</span> <span class="c1">#=&gt; [4, 34, 51, 62, 67, 68, 88, 91, 93, 98]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Interestingly, it&rsquo;s faster to convert a large array into a binary tree and perform a search than it is to call <code>include?</code> on the Array.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">array</span> <span class="o">=</span> <span class="mi">5000</span><span class="o">.</span><span class="n">times</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span> <span class="nb">rand</span> <span class="mi">50000</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Benchmark</span><span class="o">.</span><span class="n">bm</span> <span class="k">do</span> <span class="o">|</span><span class="n">benchmark</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;array#include?&quot;</span><span class="p">)</span> <span class="p">{</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">v</span><span class="o">|</span> <span class="n">array</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="p">}}</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;binary search&quot;</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">tree</span> <span class="o">=</span> <span class="no">BinaryTree</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">v</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<pre><code>                    user     system      total        real
+array#include? 13.160000   0.020000  13.180000 ( 13.235368)
+binary search   0.190000   0.000000   0.190000 (  0.188989)
+</code></pre>
+
+<p>It takes about 50% longer than just the binary tree search itself, which makes sense because it
+traverses the tree twice (once to insert values and once to query them). It doesn&rsquo;t take twice as long,
+because we start with a small tree (a single node) and build it up gradually as the values are inserted.</p>
 </div>
 
 
