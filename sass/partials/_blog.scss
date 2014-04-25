@@ -8,6 +8,7 @@ article {
     margin-bottom: 1em;
     background: $img-border bottom left repeat-x;
     h1 {
+      font-weight: 300;
       margin: 0;
       a { text-decoration: none;
         &:hover { text-decoration: underline; } }
