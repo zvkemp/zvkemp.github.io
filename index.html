@@ -9,7 +9,7 @@
   <meta name="author" content="Zach Kemp">
 
   
-  <meta name="description" content="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry&rsquo;s standard dummy text ever since &hellip;">
+  <meta name="description" content="In learning about Haskell recently, I was introduced to a recursive data structure I had never used before (at least not knowingly) &ndash; the &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -54,7 +54,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2014/04/25/test-post/">Test Post</a></h1>
+      <h1 class="entry-title"><a href="/blog/2014/04/25/binary-search-trees-in-ruby/">Binary Search Trees in Ruby</a></h1>
     
     
       <p class="meta">
@@ -70,38 +70,373 @@
   
 
 
-<time datetime="2014-04-25T08:51:46-07:00" pubdate data-updated="true">Apr 25<span>th</span>, 2014</time>
+<time datetime="2014-04-25T10:16:18-07:00" pubdate data-updated="true">Apr 25<span>th</span>, 2014</time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry&rsquo;s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.</p>
+  <div class="entry-content"><p>In learning about Haskell recently, I was introduced to a recursive data structure I had never used before (at least not knowingly) &ndash; the binary search tree (BST). The BST is made up of nodes that have three main features:</p>
 
-<figure class='code'><figcaption><span>Test Code</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<ol>
+<li>They contain a value</li>
+<li>They can refer to another node to the left with a smaller value</li>
+<li>They can refer to another node to the right with a larger value</li>
+</ol>
+
+
+<p>So let&rsquo;s throw a simple problem at this: determining whether a given integer is a member of an array.</p>
+
+<p>Can we construct a binary search tree in Ruby that is faster than Ruby&rsquo;s native C-implemented Array class? (Spoilers: <em>yes.</em>)</p>
+
+<p><em>My first implementation of this had an overarching <code>Tree</code> class, but it soon became clear that it&rsquo;s entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a <code>Node</code>. The tree will be implied.</em></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">MyTestPost</span>
-</span><span class='line'>  <span class="k">def</span> <span class="nf">foo</span>
-</span><span class='line'>    <span class="ss">:foo</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="c1"># our three features:</span>
+</span><span class='line'>    <span class="kp">attr_reader</span> <span class="ss">:value</span>
+</span><span class='line'>    <span class="kp">attr_accessor</span> <span class="ss">:left</span><span class="p">,</span> <span class="ss">:right</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="vi">@value</span> <span class="o">=</span> <span class="n">v</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">tree</span>       <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span class='line'><span class="n">tree</span><span class="o">.</span><span class="n">left</span>  <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span class='line'><span class="n">tree</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">inspect</span>
+</span><span class='line'><span class="c1">#&lt;BinaryTree::Node:0x007f9ce207a770 @value=10, </span>
+</span><span class='line'><span class="c1"># @left=#&lt;BinaryTree::Node:0x007f9ce207a748 @value=5&gt;, </span>
+</span><span class='line'><span class="c1"># @right=#&lt;BinaryTree::Node:0x007f9ce207a720 @value=15&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Great! But also: awful. Instead of constructing the tree manually, we need to be able to treat it
+as if it were an array. We should be able to apply the shovel operator to the base node of the tree
+and have the tree place the value wherever it should rightfully or leftfully go.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">case</span> <span class="n">value</span> <span class="o">&lt;=&gt;</span> <span class="n">v</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">left</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">right</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="kp">false</span> <span class="c1"># the value is already present</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>    <span class="k">end</span>
 </span><span class='line'>  <span class="k">end</span>
 </span><span class='line'><span class="k">end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
+<p>This uses Ruby&rsquo;s spaceshipesque comparator <code>&lt;=&gt;</code> to determine if the value to be inserted is greater than, less than, or equal to the value of the current node, and then traverses the tree until &hellip;</p>
 
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">tree</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span><span class='line'><span class="c1"># =&gt; binary_tree.rb:13:in `insert&#39;: undefined method `insert&#39; for nil:NilClass (NoMethodError)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Spectacular! Except: not. We have a node that expected its left value to respond to <code>insert</code>, to which <code>nil</code> annoyingly refused. We can redefine more specific insert methods to work around this issue (and, since it&rsquo;s getting a bit hard to read, a new <code>inspect</code> method):</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="nf">factorial</span> <span class="ow">::</span> <span class="p">(</span><span class="kt">Integral</span> <span class="n">a</span><span class="p">)</span> <span class="ow">=&gt;</span> <span class="n">a</span> <span class="ow">-&gt;</span> <span class="n">a</span>
-</span><span class='line'><span class="nf">factorial</span> <span class="mi">0</span> <span class="ow">=</span> <span class="mi">1</span>
-</span><span class='line'><span class="nf">factorial</span> <span class="n">n</span> <span class="ow">=</span> <span class="n">n</span> <span class="o">*</span> <span class="n">factorial</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">case</span> <span class="n">value</span> <span class="o">&lt;=&gt;</span> <span class="n">v</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">insert_left</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">insert_right</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="kp">false</span> <span class="c1"># the value is already present</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">inspect</span>
+</span><span class='line'>      <span class="s2">&quot;{</span><span class="si">#{</span><span class="n">value</span><span class="si">}</span><span class="s2">::</span><span class="si">#{</span><span class="n">left</span><span class="o">.</span><span class="n">inspect</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">right</span><span class="o">.</span><span class="n">inspect</span><span class="si">}</span><span class="s2">}&quot;</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kp">private</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">insert_left</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">left</span>
+</span><span class='line'>          <span class="n">left</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">else</span>
+</span><span class='line'>          <span class="nb">self</span><span class="o">.</span><span class="n">left</span> <span class="o">=</span> <span class="no">Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">end</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">insert_right</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">right</span>
+</span><span class='line'>          <span class="n">right</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">else</span>
+</span><span class='line'>          <span class="nb">self</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="no">Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">end</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">tree</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span><span class='line'><span class="c1"># =&gt; {10:{5:{3:nil|nil}|nil}|{15:nil|nil}}</span>
 </span></code></pre></td></tr></table></div></figure>
 
+
+<p><em>I am aware this code repeats itself. A refactoring is imminent.</em></p>
+
+<p>The next step is to determine whether our tree contains a given value. This is where the Binary Search Tree has a reputation for speediness &ndash; unlike iterating over every element of an array and checking for equality, the structure of the tree provides a sort of automatic index that points us to where the value <em>should</em> be, and then we can check if it&rsquo;s there. It&rsquo;ll look remarkably similar to our <code>insert</code> method:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">case</span> <span class="n">value</span> <span class="o">&lt;=&gt;</span> <span class="n">v</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">left</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">right</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="kp">true</span> <span class="c1"># the current node is equal to the value</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you were paying attention to the <code>insert</code> method, you can probably guess that when this  method reaches a <code>left</code> or <code>right</code> that is <code>nil</code>, it will fail. Which is <em>really annoying!</em> But since this seems to be a pattern we have stumbled upon, let&rsquo;s find a better way to solve this rather than peppering the code with nil checks. Enter our second class, <code>EmptyNode</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">EmptyNode</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">contains?</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+</span><span class='line'>      <span class="kp">false</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+</span><span class='line'>      <span class="kp">false</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">inspect</span>
+</span><span class='line'>      <span class="s2">&quot;{}&quot;</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>&hellip;and make sure instances of this class terminate our tree by default:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">EmptyNode</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="vi">@value</span> <span class="o">=</span> <span class="n">v</span>
+</span><span class='line'>      <span class="vi">@left</span>  <span class="o">=</span> <span class="no">EmptyNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>      <span class="vi">@right</span> <span class="o">=</span> <span class="no">EmptyNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">happy</span> <span class="o">=</span> <span class="no">BinaryTree</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">left</span> <span class="c1">#=&gt; </span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><em>Note: the <code>(*)</code> formal argument to these <code>EmptyNode</code>&rsquo;s methods simply states that we don&rsquo;t
+care how many arguments are passed to the method, and that we won&rsquo;t be using them anyway.</em></p>
+
+<p>The <code>EmptyNode</code> class is useful in that it provides a meaningful end to the recursive
+structure &mdash; specifically, that a given range of values in the tree are definitively
+not present. Otherwise, it does very little. We don&rsquo;t allow <code>insert</code> to do anything with it,
+because then it wouldn&rsquo;t be an empty node.  Unfortunately, we can&rsquo;t simply tell it to replace itself
+with a <code>Node</code> object (as that isn&rsquo;t possible in Ruby), so we have to change the reference back at the parent node:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Node</span>
+</span><span class='line'>    <span class="kp">private</span>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">insert_left</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">left</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">self</span><span class="o">.</span><span class="n">left</span> <span class="o">=</span> <span class="no">Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">insert_right</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">right</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">self</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="no">Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here, we use the <code>or</code> control flow operator to perform one of two actions: if the first returns
+a falsey value, the second (assign the new <code>Node</code> object).</p>
+
+<p>Ok! So we now have a binary tree that can insert new values at the correct location
+and tell you whether or not it contains a given value. Let&rsquo;s check it out:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">tree</span> <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>               <span class="c1">#=&gt; {10:{}|{}}</span>
+</span><span class='line'><span class="o">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="o">].</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">value</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span> <span class="c1">#=&gt; {10:{5:{3:{}|{}}|{}}|{15:{}|{}}}</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span> <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="c1">#=&gt; false</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>  <span class="c1">#=&gt; true</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1">#=&gt; false</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&rsquo;s benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
+1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
+identical set of values.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;benchmark&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">test_array</span> <span class="o">=</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">5000</span><span class="o">.</span><span class="n">times</span> <span class="p">{</span> <span class="n">test_array</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="nb">rand</span> <span class="mi">50000</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">tree</span> <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:Node</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">test_array</span><span class="o">.</span><span class="n">first</span><span class="p">)</span>
+</span><span class='line'><span class="n">test_array</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">value</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Benchmark</span><span class="o">.</span><span class="n">bm</span> <span class="k">do</span> <span class="o">|</span><span class="n">benchmark</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;test_array include&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">test_array</span><span class="o">.</span><span class="n">include?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'>  <span class="n">benchmark</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="s2">&quot;binary tree search&quot;</span><span class="p">){</span> <span class="p">(</span><span class="mi">1</span><span class="o">.</span><span class="n">.</span><span class="mi">50000</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="p">{</span><span class="o">|</span><span class="n">n</span><span class="o">|</span> <span class="n">tree</span><span class="o">.</span><span class="n">contains?</span> <span class="n">n</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<pre><code>                        user     system      total        real
+test_array include 13.230000   0.020000  13.250000 ( 13.283172)
+binary tree search  0.140000   0.000000   0.140000 (  0.139983)
+</code></pre>
+
+<p>I have to say, I was a little surprised how much faster (~100x) this was.</p>
 </div>
   
   
@@ -122,7 +457,7 @@
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2014/04/25/test-post/">Test Post</a>
+        <a href="/blog/2014/04/25/binary-search-trees-in-ruby/">Binary Search Trees in Ruby</a>
       </li>
     
   </ul>
