@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-04-25T15:40:08-07:00</updated>
+  <updated>2014-04-25T15:41:05-07:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -424,7 +424,7 @@ are in the hash, so we&rsquo;ll just make them all <code>true</code>:</p>
 
 <p>Ruby&rsquo;s native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.</p>
 
-<h2>Part 3: Additional methods</h2>
+<h2>Part 3: Array Conversions</h2>
 
 <p>In order to convert arrays into binary trees and back again, let&rsquo;s introduce a few new methods. The first will be a module method:</p>
 
