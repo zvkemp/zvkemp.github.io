@@ -19,22 +19,22 @@
 //$solarized: light;
 
 /* If you want to tweak the Solarized colors you can do that here */
-//$base03:          #002b36; //darkest blue
-//$base02:          #073642; //dark blue
-//$base01:          #586e75; //darkest gray
-//$base00:          #657b83; //dark gray
-//$base0:           #839496; //medium gray
-//$base1:           #93a1a1; //medium light gray
-//$base2:           #eee8d5; //cream
-//$base3:           #fdf6e3; //white
-//$solar-yellow:    #b58900;
-//$solar-orange:    #cb4b16;
-//$solar-red:       #dc322f;
-//$solar-magenta:   #d33682;
-//$solar-violet:    #6c71c4;
-//$solar-blue:      #268bd2;
-//$solar-cyan:      #2aa198;
-//$solar-green:     #859900;
+$base03:          #222; //darkest blue
+$base02:          #333; //dark blue
+$base01:          #586e75; //darkest gray
+$base00:          #657b83; //dark gray
+$base0:           #839496; //medium gray
+$base1:           lighten(#93a1a1, 10%); //medium light gray
+$base2:           #eee8d5; //cream
+$base3:           #fdf6e3; //white
+$solar-yellow:    lighten(#b58900, 10%);
+$solar-orange:    lighten(#cb4b16, 10%);
+$solar-red:       lighten(#dc322f, 10%);
+$solar-magenta:   lighten(#d33682, 10%);
+$solar-violet:    lighten(#6c71c4, 10%);
+$solar-blue:      lighten(#268bd2, 10%);
+$solar-cyan:      lighten(#2aa198, 10%);
+$solar-green:     lighten(#859900, 10%);
 
 
 /* Non highlighted code colors */

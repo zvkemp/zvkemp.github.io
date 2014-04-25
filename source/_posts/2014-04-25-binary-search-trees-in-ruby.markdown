@@ -16,6 +16,8 @@ So let's throw a simple problem at this: determining whether a given integer is 
 
 Can we construct a binary search tree in Ruby that is faster than Ruby's native C-implemented Array class? (Spoilers: *yes.*)
 
+## Part 1: Implementation
+
 *My first implementation of this had an overarching `Tree` class, but it soon became clear that it's entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a `Node`. The tree will be implied.*
 
 ``` ruby
@@ -109,15 +111,21 @@ tree.insert(3)
 
 *I am aware this code repeats itself. A refactoring is imminent.*
 
-The next step is to determine whether our tree contains a given value. This is where the Binary Search Tree has a reputation for speediness - unlike iterating over every element of an array and checking for equality, the structure of the tree provides a sort of automatic index that points us to where the value *should* be, and then we can check if it's there. It'll look remarkably similar to our `insert` method:
+The next step is to determine whether our tree contains a given value. 
+This is where the Binary Search Tree has a reputation for speediness - unlike 
+iterating over every element of an array and checking for equality, the structure of the 
+tree provides a sort of automatic index that points us to where the value *should* be, 
+and then we can check if it's there. It'll look remarkably similar to our `insert` method:
 
 ``` ruby
 module BinaryTree
   class Node
-    def contains?(v)
+
+    # named include? to parallel Array#include?
+    def include?(v)
       case value <=> v
-      when 1 then left.contains?(v)
-      when -1 then right.contains?(v)
+      when 1 then left.include?(v)
+      when -1 then right.include?(v)
       when 0 then true # the current node is equal to the value
       end
     end
@@ -131,7 +139,7 @@ If you were paying attention to the `insert` method, you can probably guess that
 ``` ruby
 module BinaryTree
   class EmptyNode
-    def contains?(*)
+    def include?(*)
       false
     end
 
@@ -196,12 +204,14 @@ and tell you whether or not it contains a given value. Let's check it out:
 ``` ruby
 tree = BinaryTree::Node.new(10)               #=> {10:{}|{}}
 [5, 15, 3].each {|value| tree.insert(value) } #=> {10:{5:{3:{}|{}}|{}}|{15:{}|{}}}
-puts tree.contains?(10) #=> true
-puts tree.contains?(15) #=> true
-puts tree.contains?(20) #=> false
-puts tree.contains?(3)  #=> true
-puts tree.contains?(2)  #=> false
+puts tree.include?(10) #=> true
+puts tree.include?(15) #=> true
+puts tree.include?(20) #=> false
+puts tree.include?(3)  #=> true
+puts tree.include?(2)  #=> false
 ```
+
+## Part 2: Benchmarks
 
 Let's benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
 1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
@@ -218,7 +228,7 @@ test_array.each {|value| tree.insert(value) }
 
 Benchmark.bm do |benchmark|
   benchmark.report("test_array include"){ (1..50000).each {|n| test_array.include? n } }
-  benchmark.report("binary tree search"){ (1..50000).each {|n| tree.contains? n } }
+  benchmark.report("binary tree search"){ (1..50000).each {|n| tree.include? n } }
 end
 ```
 
@@ -226,4 +236,101 @@ end
     test_array include 13.230000   0.020000  13.250000 ( 13.283172)
     binary tree search  0.140000   0.000000   0.140000 (  0.139983)
 
-I have to say, I was a little surprised how much faster (~100x) this was.
+I have to say, I was a little surprised how much faster (~100x) this was. It makes sense when you think about the fact that
+to check if an element is included in the Array, Ruby needs to run an equality comparison for up to 5000 values 50000 times.
+That's a lot of overhead, and Arrays simply aren't optimized for this. Ruby has another built-in data structure that is
+explicitly designed for fast lookups of arbitrary values &mdash; the venerable `Hash`. 
+Similar to a binary search tree, Ruby's hash tables follow a defined set of rules that guide it to the
+proper places in memory when setting and retrieving values. For an in-depth exploration of what makes Hashes fast, read Pat Shaughnessy's *[Ruby Under a Microscope](http://www.worldcat.org/title/ruby-under-a-microscope-an-illustrated-guide-to-ruby-internals/oclc/844728904&referer=brief_results).*
+
+Let's rerun the benchmark again, but this time comparing hash lookups as well. For these purposes, it doesn't matter what the values
+are in the hash, so we'll just make them all `true`:
+
+``` ruby
+test_hash = Hash[test_array.map {|x| [x, true] }]
+
+Benchmark.bm do |benchmark|
+  benchmark.report("test_array include"){ (1..50000).each {|n| test_array.include? n } }
+  benchmark.report("binary tree search"){ (1..50000).each {|n| tree.include? n } }
+  benchmark.report("test_hash lookup"  ){ (1..50000).each {|n| hash.has_key? n } }
+end
+```
+
+                             user     system      total        real
+     test_array include 13.400000   0.020000  13.420000 ( 13.473588)
+     binary tree search  0.130000   0.000000   0.130000 (  0.129013)
+     test_hash lookup    0.000000   0.000000   0.000000 (  0.008119)
+
+Ruby's native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.
+
+## Part 3: Additional methods
+
+In order to convert arrays into binary trees and back again, let's introduce a few new methods. The first will be a module method:
+
+``` ruby
+module BinaryTree
+  def self.from_array(array)
+    Node.new(array.first).tap do |tree|
+      array.each {|v| tree.insert v }
+    end
+  end
+end
+```
+
+`from_array` simply assigns the root node of the tree as the first value of the array, then pushes
+all array values on in order. Converting back to an array is a simple matter of traversing the recursive tree.
+An interesting side effect is that if done in a particular way, this is equivalent to calling `.uniq.sort` on the original array (as far as I know,
+it's impossible to maintain the original order).
+
+``` ruby
+module BinaryTree
+  class Node
+    def to_a
+      left.to_a + [value] + right.to_a
+    end
+  end
+
+  class EmptyNode
+    # unsurprisingly, an empty node returns an empty array
+    def to_a
+      []
+    end
+  end
+end
+```
+
+In case it's not clear how the recursion works, here's what the array expansion looks like for a simple tree `{10:{5:{}|{}}|{15:{}|{}}}`:
+
+1. For both 5 and 15, `left.to_a` and `right.to_a` are `[]` (`EmptyNode#to_a`), so the results are `[5]` and `[15]` respectively
+1. For 10, `left.to_a` is `[5]` and `right.to_a` is `[15]`, giving `[5] + [10] + [15]` or `[5, 10, 15]`
+
+We can test it on an example with more elements:
+
+``` ruby
+array = [51, 88, 62, 68, 98, 93, 51, 67, 91, 4, 34]
+tree = Binary.from_array(array)
+# => {51:{4:{}|{34:{}|{}}}|{88:{62:{}|{68:{67:{}|{}}|{}}}|{98:{93:{91:{}|{}}|{}}|{}}}}
+tree.to_a #=> [4, 34, 51, 62, 67, 68, 88, 91, 93, 98]
+```
+
+Interestingly, it's faster to convert a large array into a binary tree and perform a search than it is to call `include?` on the Array.
+
+``` ruby
+array = 5000.times.map { rand 50000 }
+
+Benchmark.bm do |benchmark|
+  benchmark.report("array#include?") { (1..50000).each {|v| array.include?(v) }}
+  benchmark.report("binary search") do
+    tree = BinaryTree.from_array(array)
+    (1..50000).each {|v| tree.include?(v) }
+  end
+end
+```
+
+                        user     system      total        real
+    array#include? 13.160000   0.020000  13.180000 ( 13.235368)
+    binary search   0.190000   0.000000   0.190000 (  0.188989)
+
+It takes about 50% longer than just the binary tree search itself, which makes sense because it 
+traverses the tree twice (once to insert values and once to query them). It doesn't take twice as long,
+because we start with a small tree (a single node) and build it up gradually as the values are inserted.
