@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-04-25T15:48:06-07:00</updated>
+  <updated>2014-04-25T15:56:59-07:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -531,6 +531,22 @@ binary search   0.190000   0.000000   0.190000 (  0.188989)
 <p>It takes about 50% longer than just the binary tree search itself, which makes sense because it
 traverses the tree twice (once to insert values and once to query them). It doesn&rsquo;t take twice as long,
 because we start with a small tree (a single node) and build it up gradually as the values are inserted.</p>
+
+<h2>4. Next Up: Balancing</h2>
+
+<p><em>Coming soon!</em></p>
+
+<h2>5. Why would I use this?</h2>
+
+<p>Because of nerdliness?</p>
+
+<p>Honestly cannot think of an instance where this would have been useful to me in a Ruby project, including
+those where I&rsquo;m juggling querying enormous quantities of data.</p>
+
+<p>As much as we are loathe to admit it, there <em>are other languages</em> that <em>behave differently from Ruby</em>
+and are <em>used for different things</em>. <a href="http://stackoverflow.com/questions/2130416/what-are-the-applications-of-binary-trees">Here&rsquo;s a StackOverflow question describing some of them</a>.</p>
+
+<h2>Appendix</h2>
 
 <p>Here is the code in its entirety:</p>
 
