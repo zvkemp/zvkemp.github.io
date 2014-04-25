@@ -11,6 +11,7 @@ module BinaryTree
     def push(*)
       false
     end
+    alias_method :<<, :push
 
     def inspect
       "{}"
