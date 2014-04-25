@@ -333,6 +333,22 @@ It takes about 50% longer than just the binary tree search itself, which makes s
 traverses the tree twice (once to insert values and once to query them). It doesn't take twice as long,
 because we start with a small tree (a single node) and build it up gradually as the values are inserted.
 
+## 4. Next Up: Balancing
+
+*Coming soon!*
+
+## 5. Why would I use this?
+
+Because of nerdliness?
+
+Honestly cannot think of an instance where this would have been useful to me in a Ruby project, including
+those where I'm juggling querying enormous quantities of data. 
+
+As much as we are loathe to admit it, there *are other languages* that *behave differently from Ruby*
+and are *used for different things*. [Here's a StackOverflow question describing some of them](http://stackoverflow.com/questions/2130416/what-are-the-applications-of-binary-trees).
+
+## Appendix
+
 Here is the code in its entirety:
 
 {% gist 11305728 %}
