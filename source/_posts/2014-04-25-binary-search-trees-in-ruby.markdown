@@ -263,7 +263,7 @@ end
 
 Ruby's native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.
 
-## Part 3: Additional methods
+## Part 3: Array Conversions
 
 In order to convert arrays into binary trees and back again, let's introduce a few new methods. The first will be a module method:
 
