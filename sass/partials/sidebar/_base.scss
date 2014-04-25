@@ -14,7 +14,7 @@ aside.sidebar {
     h1 {
       margin: 1.5em 0 0;
       padding-bottom: .2em;
-      border-bottom: 1px solid $sidebar-border;
+      //border-bottom: 1px solid $sidebar-border;
       @extend .side-shadow-border;
       + p {
         padding-top: .4em;
@@ -34,8 +34,8 @@ aside.sidebar {
     list-style: none;
     padding: .5em 0;
     margin: 0;
-    border-bottom: 1px solid $sidebar-border;
-    @extend .side-shadow-border;
+    //border-bottom: 1px solid $sidebar-border;
+    //@extend .side-shadow-border;
     p:last-child {
       margin-bottom: 0;
     }
@@ -65,10 +65,10 @@ aside.sidebar {
     color: mix($text-color-light, $sidebar-bg);
     width: 9px;
     cursor: pointer;
-    &:hover {
-      background: mix($sidebar-border, $sidebar-bg);
-      @include background(linear-gradient(left, rgba($sidebar-border, .5), rgba($sidebar-border, 0)));
-    }
+    //&:hover {
+     // background: mix($sidebar-border, $sidebar-bg);
+      //@include background(linear-gradient(left, rgba($sidebar-border, .5), rgba($sidebar-border, 0)));
+    //}
     &:after {
       position: absolute; right: -11px; top: 0;
       width: 20px;
@@ -78,8 +78,8 @@ aside.sidebar {
       @include border-bottom-right-radius(.3em);
       text-align: center;
       background: $main-bg $noise-bg;
-      border-bottom: 1px solid $sidebar-border;
-      border-right: 1px solid $sidebar-border;
+      //border-bottom: 1px solid $sidebar-border;
+      //border-right: 1px solid $sidebar-border;
       content: "\00BB";
       text-indent: -1px;
     }
@@ -91,7 +91,7 @@ aside.sidebar {
         background: mix($sidebar-border, $sidebar-bg);
       }
       &:after {
-        border-left: 1px solid $sidebar-border;
+        //border-left: 1px solid $sidebar-border;
         text-shadow: #fff 0 1px;
         content: "\00AB";
         left: 0px; right: 0;

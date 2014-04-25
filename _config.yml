@@ -6,7 +6,7 @@ url: http://zvkemp.github.io
 title: My Octopress Blog
 subtitle: A blogging framework for hackers.
 author: Your Name
-simple_search: https://www.google.com/search
+simple_search: false # https://www.google.com/search
 description:
 
 # Default date format is "ordinal" (resulting in "July 22nd 2007")
@@ -17,6 +17,7 @@ date_format: "ordinal"
 
 # RSS / Email (optional) subscription links (change if using something like Feedburner)
 subscribe_rss: /atom.xml
+show_feeds: false
 subscribe_email:
 # RSS feeds can list your email address if you like
 email:
