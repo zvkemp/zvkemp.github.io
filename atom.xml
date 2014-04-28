@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-04-28T10:32:07-07:00</updated>
+  <updated>2014-04-28T10:34:03-07:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -1157,7 +1157,7 @@ those where I&rsquo;m juggling querying enormous quantities of data.</p>
 <p>As much as we are loathe to admit it, there <em>are other languages</em> that <em>behave differently from Ruby</em>
 and are <em>used for different things</em>. <a href="http://stackoverflow.com/questions/2130416/what-are-the-applications-of-binary-trees">Here&rsquo;s a StackOverflow question describing some of them</a>.</p>
 
-<p><em>Check back next week for a discussion of balanced binary search trees!</em></p>
+<p><em><a href="http://zvkemp.github.io/blog/2014/04/28/reimplementing-rubys-hash-using-binary-search-trees/">Click here to read part 2: Reimplementing Ruby&rsquo;s Hash using binary search trees!</a></em></p>
 
 <h2>Appendix</h2>
 
