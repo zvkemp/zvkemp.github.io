@@ -16,7 +16,7 @@ So let's throw a simple problem at this: determining whether a given integer is 
 
 Can we construct a binary search tree in Ruby that is faster than Ruby's native C-implemented Array class? (Spoilers: *yes.*)
 
-## Part 1: Implementation
+## 1. Implementation
 
 *My first implementation of this had an overarching `Tree` class, but it soon became clear that it's entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a `Node`. The tree will be implied.*
 
@@ -209,7 +209,7 @@ puts tree.include?(3)  #=> true
 puts tree.include?(2)  #=> false
 ```
 
-## Part 2: Benchmarks
+## 2. Benchmarks
 
 Let's benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
 1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
@@ -261,7 +261,7 @@ end
 
 Ruby's native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.
 
-## Part 3: Array Conversions
+## 3. Array Conversions
 
 In order to convert arrays into binary trees and back again, let's introduce a few new methods. The first will be a module method:
 
