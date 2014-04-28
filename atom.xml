@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-04-28T10:16:17-07:00</updated>
+  <updated>2014-04-28T10:32:07-07:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -24,12 +24,19 @@
 (using <code>Object#hash</code>) and stored in the appropriate &lsquo;buckets&rsquo;. In this exercise, we will look at an alternate implementation
 of a hash-like key-value store using binary search trees.</p>
 
-<p>The basic structure of the nodes will be as follows:
- &ndash; We will use the existing <code>hash</code> method to generate integer values from objects. These will be the node values.
- &ndash; The key object itself will be stored in the node as a separate property.
- &ndash; The value object will also be stored in the node.</p>
+<p>The basic structure of the nodes will be as follows:</p>
 
-<h3>1. Retrieve a value</h3>
+<ul>
+<li>We will use the existing <code>hash</code> method to generate integer values from objects. These will be the node values.</li>
+<li>The key object itself will be stored in the node as a separate property.</li>
+<li>The value object will also be stored in the node.</li>
+</ul>
+
+
+<p>The binary tree hash will be a simple drop-in replacement for Ruby&rsquo;s Hash class. It won&rsquo;t have enumerable methods, but
+it will have square bracket notation for looking up and storing values, an implementation of <code>fetch</code>, and a <code>default_proc</code> feature.</p>
+
+<h3>1. Retrieving a value</h3>
 
 <p>We will use <a href="https://gist.github.com/zvkemp/11305728">our implementation of the basic binary tree</a> as a starting point (but renaming
 the classes). The first major difference will be that the <code>value</code> of the node will no longer be its address in the tree &ndash; instead, we use the
@@ -306,7 +313,7 @@ operating with protected methods, I&rsquo;m not very concerned about simply tack
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h3>2. <code>fetch</code> and <code>default_proc</code></h3>
+<h3>3. Fetch</h3>
 
 <p>Ok! We&rsquo;re actually almost done. Let&rsquo;s add a whole slew of tests and see how well this conforms to Ruby&rsquo;s native Hash implementation:</p>
 
@@ -375,6 +382,8 @@ of the <code>lookup</code> method, implemented as a series of guard clauses:</p>
 
 <p>&hellip; and the tests pass.</p>
 
+<h3>4. <code>default_proc</code></h3>
+
 <p>The last hash feature I use regularly is called the <code>default_proc</code>, which stores a block that is called when a given key is
 not present in the hash table. It is used like this:</p>
 
@@ -385,9 +394,12 @@ not present in the hash table. It is used like this:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Since our binary tree hash is a distributed recursive data structure, this presents a special challenge. Each node will need to
-store the default proc and pass it on to new node instances as they are created. Let&rsquo;s start with some tests. Our hash
-will automatically fire up some arrays for us when a new key is given:</p>
+<p>Since our binary tree hash is a distributed recursive data structure, at first glance this presents a special challenge &mdash;
+each node will need to store the default proc and pass it on to new node instances as they are created. But that&rsquo;s not actually true.
+The recursive nature of the structure means that lookups bubble up through the tree and are returned through the root node&rsquo;s lookup function,
+meaning the proc only has to be stored at the root.</p>
+
+<p>Let&rsquo;s start with some tests. Our hash will automatically fire up some arrays for us when a new key is given:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
