@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-04-27T20:56:02-07:00</updated>
+  <updated>2014-04-28T10:16:17-07:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -12,6 +12,609 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Reimplementing Ruby's Hash Using Binary Search Trees]]></title>
+    <link href="http://zvkemp.github.io/blog/2014/04/28/reimplementing-rubys-hash-using-binary-search-trees/"/>
+    <updated>2014-04-28T08:15:28-07:00</updated>
+    <id>http://zvkemp.github.io/blog/2014/04/28/reimplementing-rubys-hash-using-binary-search-trees</id>
+    <content type="html"><![CDATA[<p><em>This is Part 2 of <a href="http://zvkemp.github.io/blog/2014/04/25/binary-search-trees-in-ruby/">Binary Search Trees in Ruby</a>.</em></p>
+
+<p>Ruby&rsquo;s native Hash implementation more or less follows the basic Hash table principle, wherein keys are hashed
+(using <code>Object#hash</code>) and stored in the appropriate &lsquo;buckets&rsquo;. In this exercise, we will look at an alternate implementation
+of a hash-like key-value store using binary search trees.</p>
+
+<p>The basic structure of the nodes will be as follows:
+ &ndash; We will use the existing <code>hash</code> method to generate integer values from objects. These will be the node values.
+ &ndash; The key object itself will be stored in the node as a separate property.
+ &ndash; The value object will also be stored in the node.</p>
+
+<h3>1. Retrieve a value</h3>
+
+<p>We will use <a href="https://gist.github.com/zvkemp/11305728">our implementation of the basic binary tree</a> as a starting point (but renaming
+the classes). The first major difference will be that the <code>value</code> of the node will no longer be its address in the tree &ndash; instead, we use the
+hashed key.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="kp">attr_reader</span> <span class="ss">:hashed_key</span><span class="p">,</span> <span class="ss">:key</span><span class="p">,</span> <span class="ss">:value</span>
+</span><span class='line'>    <span class="kp">attr_accessor</span> <span class="ss">:left</span><span class="p">,</span> <span class="ss">:right</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@value</span>      <span class="o">=</span> <span class="n">value</span>
+</span><span class='line'>    <span class="vi">@key</span>        <span class="o">=</span> <span class="n">key</span>
+</span><span class='line'>    <span class="vi">@hashed_key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">hash</span>
+</span><span class='line'>    <span class="vi">@left</span>       <span class="o">=</span> <span class="no">EmptyHashNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>    <span class="vi">@right</span>      <span class="o">=</span> <span class="no">EmptyHashNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Ideally, we would like to be able to use this as a drop-in replacement for <code>Hash</code>, so next let&rsquo;s implement the square-bracket
+notation used to retrieve a value. Also, why not write tests for this?</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;minitest/autorun&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">describe</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:HashNode</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">let</span><span class="p">(</span><span class="ss">:bt_hash</span><span class="p">){</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:HashNode</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:test</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'>  <span class="n">specify</span> <span class="p">{</span> <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:test</span><span class="o">].</span><span class="n">must_equal</span> <span class="mi">100</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">[]</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">lookup</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">hash</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Done! Almost. <code>lookup</code> will be a protected method very similar to the old <code>include?</code> that we used for the basic binary tree. The
+square bracket notation will simply be an interface that accepts the raw key, but <code>lookup</code> will work with the hashed key (so
+we don&rsquo;t need to run the hashing algorithm for every node we traverse).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="kp">private</span>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="n">hk</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">case</span> <span class="n">hashed_key</span> <span class="o">&lt;=&gt;</span> <span class="n">hk</span>
+</span><span class='line'>        <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">left</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">hk</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">right</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">hk</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="n">value</span>
+</span><span class='line'>        <span class="k">end</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>&hellip;and the test passes. Let&rsquo;s try looking up a key that hasn&rsquo;t been set:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:missing</span><span class="o">].</span><span class="n">must_be_nil</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In order for this test to pass, we will need to traverse the entire tree until we end up at an empty node.
+That node should respond to the <code>lookup</code> method with <code>nil</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">EmptyHashNode</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+</span><span class='line'>      <span class="kp">nil</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<h3>2. Storing a value</h3>
+
+<p>So now let&rsquo;s try inserting a key-value pair using the <code>[]=</code> notation:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">specify</span> <span class="s2">&quot;inserting a new value&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:hello</span><span class="o">]</span> <span class="o">=</span> <span class="mi">200</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:hello</span><span class="o">].</span><span class="n">must_equal</span> <span class="mi">200</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">specify</span> <span class="s2">&quot;overwriting an existing value&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:test</span><span class="o">]</span> <span class="o">=</span> <span class="mi">101</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:test</span><span class="o">].</span><span class="n">must_equal</span> <span class="mi">101</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Similar to the <code>[]</code> method, we&rsquo;ll implement <code>[]=</code> as an interface to the protected method <code>store</code>, which will accept the
+hashed key and raw value:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">[]=</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">store</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">hash</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>There are two possibilities here: inserting a new value and overwriting an existing value. Both covered by our two new tests. We
+can handle both of these in one <code>store</code> method, but we need to change <code>value</code> from <code>attr_reader</code> to <code>attr_accessor</code> so we
+can update its contents:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="kp">attr_accessor</span> <span class="ss">:left</span><span class="p">,</span> <span class="ss">:right</span><span class="p">,</span> <span class="ss">:value</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kp">protected</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">case</span> <span class="n">hashed_key</span> <span class="o">&lt;=&gt;</span> <span class="n">hk</span>
+</span><span class='line'>        <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">store_left</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">store_right</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="nb">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">v</span>
+</span><span class='line'>        <span class="k">end</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">#...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>But now we have a problem &ndash; we&rsquo;ve been passing the hashed key down the tree looking for the correct place to store it,
+but when we get there, we don&rsquo;t have the original key to pass to the constructor of <code>HashNode</code>. In fact, we don&rsquo;t even really
+need it, because all lookups and stores operate on the hashed value anyway, but if we want to be able to inspect the tree,
+it would be nice to see the keys we&rsquo;ve assumed we were using. It&rsquo;s not the nicest looking solution, but since we&rsquo;re
+operating with protected methods, I&rsquo;m not very concerned about simply tacking another argument onto the end of <code>store</code>, <code>store_left</code>, and <code>store_right</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="c1"># ...</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">[]=</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">store</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">hash</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="kp">protected</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">hashed_key</span> <span class="o">&lt;=&gt;</span> <span class="n">hk</span>
+</span><span class='line'>    <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="n">store_left</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">when</span> <span class="o">-</span><span class="mi">1</span> <span class="k">then</span> <span class="n">store_right</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="nb">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">v</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="kp">private</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">store_left</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">left</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">self</span><span class="o">.</span><span class="n">left</span> <span class="o">=</span> <span class="no">HashNode</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">store_right</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">right</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">self</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="no">HashNode</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># ...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>2. <code>fetch</code> and <code>default_proc</code></h3>
+
+<p>Ok! We&rsquo;re actually almost done. Let&rsquo;s add a whole slew of tests and see how well this conforms to Ruby&rsquo;s native Hash implementation:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">specify</span> <span class="s2">&quot;storing arbitrary objects as keys&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">obj</span> <span class="o">=</span> <span class="no">Object</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="n">obj</span><span class="o">]</span> <span class="o">=</span> <span class="mi">1001</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="n">obj</span><span class="o">].</span><span class="n">must_equal</span> <span class="mi">1001</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">specify</span> <span class="s2">&quot;nesting hashes&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">other_hash</span> <span class="o">=</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:HashNode</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:world</span><span class="p">,</span> <span class="mi">102</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:hello</span><span class="o">]</span> <span class="o">=</span> <span class="n">other_hash</span>
+</span><span class='line'>  <span class="n">bt_hash</span><span class="o">[</span><span class="ss">:hello</span><span class="o">][</span><span class="ss">:world</span><span class="o">].</span><span class="n">must_equal</span> <span class="mi">102</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Both of these tests pass without any further modifications to the <code>HashNode</code>. However, these:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="n">bt_hash</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="ss">:test</span><span class="p">)</span><span class="o">.</span><span class="n">must_equal</span> <span class="mi">100</span> <span class="p">}</span>
+</span><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="n">bt_hash</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="ss">:missing</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span><span class="o">.</span><span class="n">must_equal</span> <span class="mi">101</span> <span class="p">}</span>
+</span><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="o">-&gt;</span><span class="p">{</span> <span class="n">bt_hash</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="ss">:missing</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">must_raise</span> <span class="no">KeyError</span> <span class="p">}</span>
+</span><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="n">bt_hash</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="ss">:missing</span><span class="p">)</span> <span class="p">{</span> <span class="mi">101</span> <span class="p">}</span><span class="o">.</span><span class="n">must_equal</span> <span class="mi">101</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>&hellip;use the powerful <code>fetch</code> method, which we have not implemented. <code>fetch</code> provides several ways of handling missing values in a hash:
+specifying a default missing value, returning a value from a block, or raising a <code>KeyError</code>. On its face, <code>fetch</code> is a modified version
+of the <code>lookup</code> method, implemented as a series of guard clauses:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="c1">#...</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="kp">nil</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">block</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">v</span> <span class="o">=</span> <span class="n">lookup</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">v</span> <span class="k">if</span> <span class="n">v</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">default</span> <span class="k">if</span> <span class="n">default</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">block</span><span class="o">.</span><span class="n">call</span> <span class="k">if</span> <span class="nb">block_given?</span>
+</span><span class='line'>  <span class="k">raise</span> <span class="no">KeyError</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="c1">#...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>&hellip; and the tests pass.</p>
+
+<p>The last hash feature I use regularly is called the <code>default_proc</code>, which stores a block that is called when a given key is
+not present in the hash table. It is used like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">hash</span> <span class="o">=</span> <span class="no">Hash</span><span class="o">.</span><span class="n">new</span> <span class="p">{</span><span class="o">|</span><span class="nb">hash</span><span class="p">,</span> <span class="n">key</span><span class="o">|</span> <span class="nb">hash</span><span class="o">[</span><span class="n">key</span><span class="o">]</span> <span class="o">=</span> <span class="o">[]</span> <span class="p">}</span>
+</span><span class='line'><span class="nb">hash</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span> <span class="c1">#=&gt; { 0 =&gt; [1, 2, 3] }</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Since our binary tree hash is a distributed recursive data structure, this presents a special challenge. Each node will need to
+store the default proc and pass it on to new node instances as they are created. Let&rsquo;s start with some tests. Our hash
+will automatically fire up some arrays for us when a new key is given:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">let</span><span class="p">(</span><span class="ss">:defaulting_hash</span><span class="p">){</span> <span class="ss">BinaryTree</span><span class="p">:</span><span class="ss">:HashNode</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:test</span><span class="p">,</span> <span class="o">[]</span><span class="p">){</span><span class="o">|</span><span class="nb">hash</span><span class="p">,</span> <span class="n">key</span><span class="o">|</span> <span class="nb">hash</span><span class="o">[</span><span class="n">key</span><span class="o">]</span> <span class="o">=</span> <span class="o">[]</span><span class="p">}</span> <span class="p">}</span>
+</span><span class='line'><span class="n">specify</span> <span class="p">{</span> <span class="n">defaulting_hash</span><span class="o">[</span><span class="ss">:empty</span><span class="o">].</span><span class="n">must_equal</span> <span class="o">[]</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">specify</span> <span class="s2">&quot;inserting values&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">defaulting_hash</span><span class="o">[</span><span class="ss">:my_array</span><span class="o">]</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span>
+</span><span class='line'>  <span class="n">defaulting_hash</span><span class="o">[</span><span class="ss">:my_array</span><span class="o">].</span><span class="n">must_equal</span> <span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In Ruby&rsquo;s hash implementation, the default proc is only called for <code>[]</code> lookups &mdash; <code>fetch</code> still works the same way regardless of the presence
+of the constructor block. In addition to altering <code>[]</code>, We need to modify <code>initialize</code> and add a new accessor for <code>default_proc</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">module</span> <span class="nn">BinaryTree</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">HashNode</span>
+</span><span class='line'>    <span class="kp">attr_reader</span> <span class="ss">:default_proc</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">default_proc</span><span class="p">)</span>
+</span><span class='line'>      <span class="vi">@value</span> <span class="o">=</span> <span class="n">value</span>
+</span><span class='line'>      <span class="vi">@key</span> <span class="o">=</span> <span class="n">key</span>
+</span><span class='line'>      <span class="vi">@hashed_key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">hash</span>
+</span><span class='line'>      <span class="vi">@left</span> <span class="o">=</span> <span class="no">EmptyHashNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>      <span class="vi">@right</span> <span class="o">=</span> <span class="no">EmptyHashNode</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>      <span class="vi">@default_proc</span> <span class="o">=</span> <span class="n">default_proc</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">[]</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">v</span> <span class="o">=</span> <span class="n">lookup</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">hash</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">return</span> <span class="n">v</span> <span class="k">if</span> <span class="n">v</span>
+</span><span class='line'>      <span class="n">default_proc</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">if</span> <span class="n">default_proc</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The block passed to <code>Hash#new</code> uses the hash and a key as formal arguments, so we can simply call the proc using the current
+node and the given k. The recursive structure of the binary tree will take care of the rest:</p>
+
+<pre><code>my_hash = BinaryTree::HashNode.new(:test, 100){|hash, key| hash[key] = 100 }
+my_hash[:my_array] &lt;&lt; 1 &lt;&lt; 2 &lt;&lt; 3
+# =&gt; {test =&gt; []:{my_array =&gt; [1, 2, 3]:{}|{}}|{}}
+</code></pre>
+
+<h3>Appendix</h3>
+
+<p>Here is the complete source code for the binary tree hash:</p>
+
+<div><script src='https://gist.github.com/11378255.js'></script>
+<noscript><pre><code>module BinaryTree
+  class EmptyHashNode
+    def to_a
+      []
+    end
+
+    def inspect
+      &quot;{}&quot;
+    end
+
+    def lookup(*)
+      nil
+    end
+
+    def store(*)
+      false
+    end
+  end
+
+  class HashNode
+    # our three features:
+    attr_reader :hashed_key, :key, :default_proc
+    attr_accessor :left, :right, :value
+
+    def initialize(key, value, &amp;block)
+      @value      = value
+      @key        = key
+      @hashed_key = key.hash
+      @left       = EmptyHashNode.new
+      @right      = EmptyHashNode.new
+      @default_proc = block
+    end
+
+    def [](k)
+      v = lookup(k.hash)
+      return v if v
+      default_proc.call(self, k) if default_proc
+    end
+
+    def fetch(k, default = nil, &amp;block)
+      v = lookup(k.hash) 
+      return v if v
+      return default if default
+      return block.call if block_given?
+      raise KeyError
+    end
+
+    def []=(k, v)
+      store(k.hash, v, k)
+    end
+
+    def inspect
+      &quot;{#{key} =&gt; #{value}:#{left.inspect}|#{right.inspect}}&quot;
+    end
+
+    protected
+
+      def lookup(hk)
+        case hashed_key &lt;=&gt; hk
+        when 1 then left.lookup(hk)
+        when -1 then right.lookup(hk)
+        when 0 then value
+        end
+      end
+
+      def store(hk, v, k)
+        case hashed_key &lt;=&gt; hk
+        when 1 then store_left(hk, v, k)
+        when -1 then store_right(hk, v, k)
+        when 0 then self.value = v
+        end
+      end
+
+    private
+
+      def store_left(hk, v, k)
+        left.store(hk, v, k) or self.left = HashNode.new(k, v)
+      end
+
+      def store_right(hk, v, k)
+        right.store(hk, v, k) or self.right = HashNode.new(k, v)
+      end
+
+      def left=(v)
+        @left = v
+      end
+
+      def right=(v)
+        @right = v
+      end
+  end
+end
+
+</code></pre></noscript></div>
+
+
+<p>And the tests:</p>
+
+<div><script src='https://gist.github.com/11378213.js'></script>
+<noscript><pre><code>
+require &#39;minitest/autorun&#39;
+require &#39;minitest/pride&#39;
+
+describe BinaryTree::HashNode do
+  let(:bt_hash){ BinaryTree::HashNode.new(:test, 100) }
+  specify { bt_hash[:test].must_equal 100 }
+  specify { bt_hash[:missing].must_be_nil }
+
+  specify &quot;inserting a new value&quot; do
+    bt_hash[:hello] = 200
+    bt_hash[:hello].must_equal 200
+  end
+
+  specify &quot;overwriting an existing value&quot; do
+    bt_hash[:test] = 101
+    bt_hash[:test].must_equal 101
+  end
+
+  specify &quot;storing arbitrary objects as keys&quot; do
+    obj = Object.new
+    bt_hash[obj] = 1001
+    bt_hash[obj].must_equal 1001
+  end
+
+  specify &quot;nesting hashes&quot; do
+    other_hash = BinaryTree::HashNode.new(:world, 102)
+    bt_hash[:hello] = other_hash
+    bt_hash[:hello][:world].must_equal 102
+  end
+
+  specify { bt_hash.fetch(:test).must_equal 100 }
+  specify { bt_hash.fetch(:missing, 101).must_equal 101 }
+  specify { -&gt;{ bt_hash.fetch(:missing) }.must_raise KeyError }
+  specify { bt_hash.fetch(:missing) { 101 }.must_equal 101 }
+
+
+  let(:defaulting_hash){ BinaryTree::HashNode.new(:test, []){|hash, key| hash[key] = []} }
+  specify { defaulting_hash[:empty].must_equal [] }
+
+  specify &quot;inserting values&quot; do
+    defaulting_hash[:my_array] &lt;&lt; 1 &lt;&lt; 2 &lt;&lt; 3
+    defaulting_hash[:my_array].must_equal [1, 2, 3]
+  end
+end
+</code></pre></noscript></div>
+
+
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Binary Search Trees in Ruby]]></title>
@@ -31,7 +634,7 @@
 
 <p>Can we construct a binary search tree in Ruby that is faster than Ruby&rsquo;s native C-implemented Array class? (Spoilers: <em>yes.</em>)</p>
 
-<h2>Part 1: Implementation</h2>
+<h2>1. Implementation</h2>
 
 <p><em>My first implementation of this had an overarching <code>Tree</code> class, but it soon became clear that it&rsquo;s entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a <code>Node</code>. The tree will be implied.</em></p>
 
@@ -349,7 +952,7 @@ and tell you whether or not it contains a given value. Let&rsquo;s check it out:
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h2>Part 2: Benchmarks</h2>
+<h2>2. Benchmarks</h2>
 
 <p>Let&rsquo;s benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
 1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
@@ -422,7 +1025,7 @@ are in the hash, so we&rsquo;ll just make them all <code>true</code>:</p>
 
 <p>Ruby&rsquo;s native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.</p>
 
-<h2>Part 3: Array Conversions</h2>
+<h2>3. Array Conversions</h2>
 
 <p>In order to convert arrays into binary trees and back again, let&rsquo;s introduce a few new methods. The first will be a module method:</p>
 

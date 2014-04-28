@@ -87,7 +87,7 @@
 
 <p>Can we construct a binary search tree in Ruby that is faster than Ruby&rsquo;s native C-implemented Array class? (Spoilers: <em>yes.</em>)</p>
 
-<h2>Part 1: Implementation</h2>
+<h2>1. Implementation</h2>
 
 <p><em>My first implementation of this had an overarching <code>Tree</code> class, but it soon became clear that it&rsquo;s entirely unccessary. As a recursive data structure, each node has a tree descending from it, so we just need a <code>Node</code>. The tree will be implied.</em></p>
 
@@ -405,7 +405,7 @@ and tell you whether or not it contains a given value. Let&rsquo;s check it out:
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h2>Part 2: Benchmarks</h2>
+<h2>2. Benchmarks</h2>
 
 <p>Let&rsquo;s benchmark it! This test populates an array with 5000 random values up to 50,000, that checks every value between
 1 and 50,000 to see if the array includes it. The same benchmark is repeated for the binary tree containing an
@@ -478,7 +478,7 @@ are in the hash, so we&rsquo;ll just make them all <code>true</code>:</p>
 
 <p>Ruby&rsquo;s native C-implemented Hash is around 15 times faster than the Ruby-implemented binary search tree, which is about what I expected.</p>
 
-<h2>Part 3: Array Conversions</h2>
+<h2>3. Array Conversions</h2>
 
 <p>In order to convert arrays into binary trees and back again, let&rsquo;s introduce a few new methods. The first will be a module method:</p>
 
@@ -718,6 +718,8 @@ end
     <p class="meta">
       
       
+        <a class="basic-alignment right" href="/blog/2014/04/28/reimplementing-rubys-hash-using-binary-search-trees/" title="Next Post: Reimplementing Ruby's Hash using binary search trees">Reimplementing Ruby's Hash using binary search trees &raquo;</a>
+      
     </p>
   </footer>
 </article>
@@ -729,6 +731,10 @@ end
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/04/28/reimplementing-rubys-hash-using-binary-search-trees/">Reimplementing Ruby's Hash Using Binary Search Trees</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2014/04/25/binary-search-trees-in-ruby/">Binary Search Trees in Ruby</a>
