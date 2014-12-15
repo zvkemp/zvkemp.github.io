@@ -9,8 +9,7 @@
   <meta name="author" content="Zach Kemp">
 
   
-  <meta name="description" content="
-">
+  <meta name="description" content="As a Ruby-centric web developer, I am well-versed in Object-Oriented Design. It&rsquo;s a paradigm that serves its purpose well, but at times it can &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -76,7 +75,809 @@
   </header>
 
 
-  <div class="entry-content">
+  <div class="entry-content"><p>As a Ruby-centric web developer, I am well-versed in Object-Oriented Design. It&rsquo;s a paradigm that serves its purpose well, but at times it can feel a bit insular. I feel it&rsquo;s difficult to completely understand how and why a system is put together the way it is without studying systems based on other paradigms. So around six months ago I set myself to the task of understanding functional programming. And looking back on my naive mid-2014 self, I would never have guessed how different pure FP really is, even compared to a function-heavy language like JavaScript.</p>
+
+<p>I chose Haskell as my first functional language for several reasons — it&rsquo;s often regarded as the &lsquo;purest&rsquo; functional language, it&rsquo;s deeply rooted in academia (so a lot of FP research is based on it), and it has a reasonably mature ecosystem. This article isn&rsquo;t about Haskell per se, though. It&rsquo;s meant to be a brief introduction to functional concepts presented in the familiar Ruby syntax. I&rsquo;ll use Haskell merely as a reference.</p>
+
+<p>What follows is a solution to an exercism.io problem (<a href="https://github.com/exercism/xruby/tree/master/simple-linked-list">Simple Linked List</a>), written in a functional style, coming as close as possible to a Haskell implementation but still being generally usable as Ruby code. I hope this isn&rsquo;t necessary to say, but this is not meant to be used in production code, for almost the same reasons a metal fork is not to be used to pluck bread out of a toaster. Given the differences in laziness, typing, etc, Ruby is not nearly as well suited for this as Haskell is. But my <em>hope</em> is that it impels a bunch of you OO purists to check out FP. It&rsquo;s a real mind bender when you get started, but it will make you feel smart as hell once you start to understand it.</p>
+
+<h4>Who this is for:</h4>
+
+<p>Ideally, you&rsquo;ll be well-versed in Ruby, particularly the way procs work. There&rsquo;s a bit of OO design at work here, but that&rsquo;s not a necessary skill to understanding this.</p>
+
+<p>SO:</p>
+
+<h1>1. What&rsquo;s a linked list?</h1>
+
+<p>There&rsquo;s no built-in linked list in Ruby. In contrast, Haskell uses it everywhere. The default <code>List</code> implementation is a linked list with all sorts of fancy goodness attached, but the basic idea is that you have a node with two elements: a datum and a reference to the next node. The list terminates in an empty node. An explicit way to represent a linked list would be:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>1 `cons` (2 `cons` (3 `cons` Nil))</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In Haskell, <code>cons</code> is implemented as an infix <code>:</code> operator; <code>Nil</code> is <code>[]</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="mi">1</span> <span class="kt">:</span> <span class="mi">2</span> <span class="kt">:</span> <span class="mi">3</span> <span class="kt">:</span> <span class="kt">[]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>&hellip;but it can also be written (and more often is) just like a Ruby array:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The important point is that it&rsquo;s a <strong>recursive data structure</strong>, and most functions that operate on it are defined in a recursive style (or in terms of a lower-level recursively-defined function— we&rsquo;ll see what that means shortly).</p>
+
+<p>In Ruby, we&rsquo;ll need a container to act as our list constructor, so let&rsquo;s make a simple class:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="kp">attr_reader</span> <span class="ss">:datum</span><span class="p">,</span> <span class="ss">:_next</span>
+</span><span class='line'>  <span class="n">alias_method</span> <span class="ss">:next</span><span class="p">,</span> <span class="ss">:_next</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">datum</span><span class="p">,</span> <span class="n">_next</span> <span class="o">=</span> <span class="kp">nil</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@datum</span><span class="p">,</span> <span class="vi">@_next</span> <span class="o">=</span> <span class="n">datum</span><span class="p">,</span> <span class="n">_next</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now we can represent our list as:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">list</span> <span class="o">=</span> <span class="no">Element</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="no">Element</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="no">Element</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span>
+</span><span class='line'><span class="n">list</span><span class="o">.</span><span class="n">next</span><span class="o">.</span><span class="n">datum</span> <span class="c1">#=&gt; 2</span>
+</span><span class='line'><span class="n">list</span><span class="o">.</span><span class="n">next</span><span class="o">.</span><span class="n">next</span><span class="o">.</span><span class="n">datum</span> <span class="c1">#=&gt; 3</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It&rsquo;s not a very compact way to represent our data, so let&rsquo;s implement a temporary <code>to_a</code> method that converts our LL back to a standard Ruby array:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>  <span class="k">if</span> <span class="n">_next</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">datum</span><span class="o">]</span> <span class="o">+</span> <span class="n">_next</span><span class="o">.</span><span class="n">to_a</span>
+</span><span class='line'>  <span class="k">else</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">datum</span><span class="o">]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Ah, we&rsquo;re already into recursion territory. But five lines to generate an array! I&rsquo;d rather just have <code>[datum] + _next.to_a</code> and be done with it, but the <code>nil</code> at the end of the list won&rsquo;t let me do that. If only there was a way to represent <code>nil</code> as an empty list, with all of the behavior we expect from a linked list.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">datum</span><span class="p">,</span> <span class="n">_next</span> <span class="o">=</span> <span class="kp">nil</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@datum</span><span class="p">,</span> <span class="vi">@_next</span> <span class="o">=</span> <span class="n">datum</span><span class="p">,</span> <span class="p">(</span><span class="n">_next</span> <span class="o">||</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">datum</span><span class="o">]</span> <span class="o">+</span> <span class="n">_next</span><span class="o">.</span><span class="n">to_a</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>    <span class="o">[]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Ok, so now that our list terminator can respond to the recursive <code>.to_a</code> call, it not only terminates the list, it also terminates the recursion. This is important, unless you have an infinite stack and a very large capacity for hanging around waiting for programs that will never complete.</p>
+
+<p>And now it&rsquo;s only fair that we should be able to convert a Ruby array into a Linked List. In other words, we need to turn a flat data structure into a recursive one (hint: it will probably involve recursion). In Haskell, an important feature of recursive list functions is pattern matching on the <code>head</code> and <code>tail</code> of lists, where <code>head</code> is the first element, and <code>tail</code> is another list consisting of everything except the head. So the head of <code>1 : 2 : 3 : []</code> is <code>1</code>, and the tail is <code>2 : 3 : []</code>. This is often represented in the form <code>(head:tail)</code>, or more commonly, <code>(x:xs)</code>. We can do approximately the same thing with a Ruby array using destructuring assignment: <code>head, *tail = ary</code>. Unfortunately, we can&rsquo;t pattern match an empty array in Ruby, so we&rsquo;ll have to introduce a guard clause to end the recursion when the list is empty:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">class</span> <span class="o">&lt;&lt;</span> <span class="nb">self</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">from_a</span><span class="p">(</span><span class="n">ary</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">head</span><span class="p">,</span> <span class="o">*</span><span class="n">tail</span> <span class="o">=</span> <span class="n">ary</span>
+</span><span class='line'>      <span class="k">return</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span> <span class="k">unless</span> <span class="n">head</span>
+</span><span class='line'>      <span class="kp">new</span><span class="p">(</span><span class="n">head</span><span class="p">,</span> <span class="n">from_a</span><span class="p">(</span><span class="n">tail</span><span class="p">))</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span> <span class="c1"># =&gt; #&lt;Element:0x007f94f1b3e010 @datum=1, @_next=#&lt;Element:0x007f94f1b3e088 @datum=2, @_next=#&lt;Element:0x007f94f1b3e128 @datum=3, @_next=#&lt;Null:0x007f94f1b3e178&gt;&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h1>2. Functions!</h1>
+
+<p>Now that we&rsquo;ve got this recursive conversion boilerplate out of the way, it&rsquo;s time for some actual functional programming.</p>
+
+<h3>2.1 <code>CONS</code></h3>
+
+<p>The first thing we want to do is express the list constructor as a lambda function. In Haskell, which has first-class functions (pretty much everything&rsquo;s a function), the list constructor <code>(:)</code> can be passed around as an argument to other functions. <code>(:)</code> is a binary function (meaning it takes two arguments), and if you boot up <code>ghci</code> and get its type signature (<code>:t (:)</code>), you&rsquo;ll find:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="p">(</span><span class="kt">:</span><span class="p">)</span> <span class="ow">::</span> <span class="n">a</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Which is to say that <code>(:)</code> is a function that takes an argument of type <code>a</code>, another argument that is a list of <code>a</code>s, and it returns a list of <code>a</code>s. In terms of our <code>Element</code> class, that&rsquo;s really just the <code>new</code> class method. Wrapping a lambda around that is pretty trivial:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="no">CONS</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="kp">new</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>CONS</code> has most of the features of Haskell&rsquo;s <code>(:)</code>, except homogenous types are not enforced. It takes a value and a list, and prepends that value to the list. Pretty simple. We don&rsquo;t really have much to do with <code>CONS</code> for the moment, because there aren&rsquo;t yet any functions to which to feed it.</p>
+
+<ul>
+<li><strong>NOTE:</strong> Throughout this exercise, I&rsquo;ll use a combination of explicitly-defined lambdas and <code>Symbol#to_proc</code> to generate functions. The decision of which one to use rests with maintaining the arity (number of arguments) of the desired function. <code>CONS</code> is a binary function as defined here; <code>:new.to_proc</code> would need <code>Element</code> passed in as an additional argument, making it a trinary function. We&rsquo;ll see an example of a workable symbol-to-proc conversion later.</li>
+</ul>
+
+
+<h3>2.2 Folds!</h3>
+
+<p>Folds are functions that are used to implement a huge range of list operations. There are two basic types: left folds (<code>foldl</code>) and right folds (<code>foldr</code>), named for the side of the list they start with.</p>
+
+<p>Here&rsquo;s Haskell&rsquo;s type signature for <code>foldl</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="nf">foldl</span> <span class="ow">::</span> <span class="p">(</span><span class="n">a</span> <span class="ow">-&gt;</span> <span class="n">b</span> <span class="ow">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="n">a</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="n">a</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That intimidating looking thing, in plain English, says: &ldquo;<code>foldl</code> takes a function <code>f</code> (that&rsquo;s the part in parentheses), a value <code>a</code>, and a list of <code>b</code>s, and returns another value <code>a</code>, where <code>f</code> is a binary function that takes an <code>a</code> and a <code>b</code> and returns an <code>a</code>.&rdquo;</p>
+
+<p><code>foldr</code> is similar:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="nf">foldr</span> <span class="ow">::</span> <span class="p">(</span><span class="n">a</span> <span class="ow">-&gt;</span> <span class="n">b</span> <span class="ow">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="n">b</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="n">b</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Or: &ldquo;<code>foldr</code> takes a function <code>f</code>, a value <code>b</code>, and a list of <code>a</code>s, and returns a <code>b</code>, where <code>f</code> is a function that takes an <code>a</code> and a <code>b</code> and returns a <code>b</code>.</p>
+
+<p>Compare that to Ruby&rsquo;s <code>reduce</code>/<code>inject</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">inject</span><span class="p">(</span><span class="n">init</span><span class="p">)</span> <span class="p">{</span> <span class="o">|</span><span class="n">accumulator</span><span class="p">,</span> <span class="n">e</span><span class="o">|</span> <span class="o">.</span><span class="n">.</span><span class="o">.</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Or: &ldquo;<code>inject</code> is an enumerable method that takes an initial value and a block (or function) that takes an accumulator and an element, and returns the accumulated result of iterating over the enumerator with that block.&rdquo; Or: <code>(a -&gt; b -&gt; a) -&gt; a -&gt; [b] -&gt; a</code>. Same deal.</p>
+
+<p>Let&rsquo;s look at <code>foldl</code> first:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="c1"># ...</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldl</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">func</span><span class="o">[</span><span class="n">init</span><span class="p">,</span> <span class="n">datum</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>While in Haskell&rsquo;s folds, the list is passed as an argument to the function, in Ruby, it&rsquo;s the receiver of the fold methods (but the effect is the same). There&rsquo;s a lot of behavior encapsulated in this short definition, so let&rsquo;s explore the example of summing the elements of a list:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">my_list</span> <span class="o">=</span> <span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># we need a binary function that takes in an initial value and an element, and returns a result:</span>
+</span><span class='line'><span class="n">sum</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># The sum should start with 0, so we&#39;ll make that the `init`:</span>
+</span><span class='line'><span class="n">my_list</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># stepping through the recursion:</span>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="n">sum</span><span class="o">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">]</span><span class="p">)</span> <span class="c1"># for (Element 1, ...)</span>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>         <span class="c1"># we&#39;ve already arrived at something that looks</span>
+</span><span class='line'>                            <span class="c1"># just like our initial call, but for (Element 2, ...).</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="n">sum</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="c1"># now we&#39;re on (Element 3, ...)</span>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="n">sum</span><span class="o">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'><span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span> <span class="c1"># now we&#39;re on the terminator ...</span>
+</span><span class='line'><span class="c1"># =&gt; NoMethodError: undefined method `fold&#39; for #&lt;Null:0...&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Whoops, <code>Null</code> has no idea what to do. Remember back when <code>Null</code> was responsible for terminating the recursive <code>to_a</code> calls? It&rsquo;ll have a similar responsibility here, and it&rsquo;ll do it by simply not calling the function. Remember, <code>Null</code> isn&rsquo;t exactly <code>nil</code>; it represents an empty linked list. So folding it with a function and an initial value should just return the initial value:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldl</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">init</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>(The underscore ignores the first argument). Skipping back to the last step in the example, <code>Null.new.foldl(sum, 6) #=&gt; 6</code>. The result of that entire recursive call stack for <code>Element.from_a([1, 2, 3]).foldl(sum, 0)</code> is <code>6</code>, (which is correct).</p>
+
+<p><code>foldr</code> looks a lot like <code>foldl</code>, but it starts at the right of the list. Since the right of the list is always <code>Null</code> (always), let&rsquo;s start with that definition:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldr</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">init</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Not surprisingly, it&rsquo;s identical to <code>foldl</code>. How about the rest of the list?</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldr</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">func</span><span class="o">[</span><span class="n">datum</span><span class="p">,</span> <span class="n">_next</span><span class="o">.</span><span class="n">foldr</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span><span class="o">]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I&rsquo;m not going to step through this one, but if you want to, you&rsquo;ll find that rather than evaluating the function with the first element and passing it along as the <code>init</code> (as with <code>foldl</code>), <code>foldr</code> passes on the recursion first, than pops the results back up the call stack as <code>init</code>s.</p>
+
+<p>Also, I&rsquo;d like to point out something cool: <code>Symbol#to_proc</code> works with <code>foldl</code> and <code>foldr</code>!</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="ss">:+</span><span class="o">.</span><span class="n">to_proc</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="c1">#=&gt; 6</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A welcome compatibility.</p>
+
+<h3>2.3 Length</h3>
+
+<p>How would we duplicate the behavior of <code>Array#length</code> in a functional way? In a linked list, there&rsquo;s no single overarching object to query. A recursive definition would be &ldquo;1 plus the length of the tail&rdquo;, where the length of <code>Null</code> is 0:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">length</span>
+</span><span class='line'>    <span class="mi">1</span> <span class="o">+</span> <span class="n">_next</span><span class="o">.</span><span class="n">length</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">length</span><span class="p">;</span> <span class="mi">0</span> <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Fine, whatever. But we worked so hard on our folds— both <code>foldl</code> and <code>foldr</code> represent abstractions around the idea of recursion, and can be used to define functions that would otherwise recurse. To wit:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">length</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="o">-&gt;</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="p">{</span> <span class="n">acc</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">},</span> <span class="mi">0</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="c1"># just delete that sucker</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now with foldl, we can just say, &ldquo;starting at 0, add one for every element in the list.&rdquo; The fold gives us the ability to do something like Ruby&rsquo;s <code>.each</code> in a data structure that&rsquo;s pretty unfamiliar with the concept of iterators. And <code>Null</code> doesn&rsquo;t need to know a thing about it; it&rsquo;ll simply not apply the function to <code>init</code>, as we&rsquo;ve told it in its own <code>foldl</code> definition.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">length</span> <span class="c1"># =&gt; 3</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>2.4 Map</h3>
+
+<p>Here&rsquo;s Haskell&rsquo;s type signature for <code>map</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="nf">map</span> <span class="ow">::</span> <span class="p">(</span><span class="n">a</span> <span class="ow">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="n">b</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In plain English: &ldquo;<code>map</code> takes a function <code>f</code> and a list of <code>a</code>s, and returns a list of <code>b</code>s, where <code>f</code> maps from an <code>a</code> to a <code>b</code> (similar to how you would feed Ruby&rsquo;s <code>map</code> a block that deals with individual values, and you get the array at the end for free). So if a linked list pops out at the end, <code>map</code> must know how to build it. As we&rsquo;ve seen with <code>length</code>, there should be a way to define it in terms of a recursive fold. IS THERE SUCH A WAY?</p>
+
+<p>What a silly question. Remember <code>CONS</code>? <code>CONS</code> is a binary function that takes a value and a list, and returns a list, or in plain Haskell type signature terms: <code>(a -&gt; b -&gt; b)</code>, where <code>a</code> is the value and <code>b</code> is a list. And THAT type signature looks exactly like the one signing the function passed to <code>foldr</code> (<code>(a -&gt; b -&gt; b) -&gt; b -&gt; [a] -&gt; b</code>). So what happens if we drop it into a <code>foldr</code>?</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">foldr</span><span class="p">(</span><span class="ss">Element</span><span class="p">:</span><span class="ss">:CONS</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="p">)</span> <span class="c1">#=&gt; #&lt;Element:0x007fca4b9161e0 @datum=1, @_next=#&lt;Element:0x007fca4b916230 @datum=2...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We get our same list back! <em>Actually, if you compare the memory addresses, you&rsquo;ll see it&rsquo;s a new list with identical data. The same will be true for all of our operations — in the spirit of immutability, we&rsquo;re not going to mutate anything today.</em></p>
+
+<p>Let&rsquo;s take this a step further and say that instead of applying <code>CONS</code> directly, we want to apply <code>f</code> to a datum, and THEN <code>CONS</code> it to the rest of the list. To do that, we&rsquo;ll <strong>compose</strong> a new function out of <code>f</code> and <code>CONS</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">double</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">}</span>
+</span><span class='line'><span class="n">double_cons</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">new_list</span><span class="p">){</span> <span class="ss">Element</span><span class="p">:</span><span class="ss">:CONS</span><span class="o">[</span><span class="n">double</span><span class="o">[</span><span class="n">x</span><span class="o">]</span><span class="p">,</span> <span class="n">new_list</span><span class="o">]</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># try it out:</span>
+</span><span class='line'><span class="n">double_cons</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="o">].</span><span class="n">to_a</span> <span class="c1"># =&gt; [2]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>double_cons</code> is the type of function (literally) we can feed to <code>foldr</code>, and can be abstracted for use in <code>map</code>. We want to be able to use it with a block like Ruby&rsquo;s built in <code>map</code>, so let&rsquo;s define it using <code>&amp;func</code> as the function argument:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">map</span><span class="p">(</span><span class="o">&amp;</span><span class="n">func</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">foldr</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">accumulator</span><span class="p">)</span> <span class="p">{</span> <span class="no">CONS</span><span class="o">[</span><span class="n">func</span><span class="o">[</span><span class="n">x</span><span class="o">]</span><span class="p">,</span> <span class="n">accumulator</span><span class="o">]</span> <span class="p">},</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The empty list at right-hand side becomes our initial value, and we prepend the mapped values from the rest of the list in reverse order, leaving us with a mapped version of the original list:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">}</span><span class="o">.</span><span class="n">to_a</span> <span class="c1"># =&gt; [2, 4, 6]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Again, since <code>Null</code> knows how to <code>foldr</code>, there&rsquo;s no additional definition needed for mapping over an empty list.</p>
+
+<h3>2.5 Reverse</h3>
+
+<p>A recursive explanation of reversing a linked list might go something like this: starting from the left, prepend each element of a list onto a new list:</p>
+
+<p>or:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="mi">1</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">[]</span>
+</span><span class='line'><span class="o">[]</span> <span class="o">-----</span> <span class="mi">3</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">[]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>(It&rsquo;s almost magical)</p>
+
+<p>&ldquo;Starting from the left&rdquo; makes me think of <code>foldl</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">reverse</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="no">CONS</span><span class="o">[</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="o">]</span> <span class="p">},</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">reverse</span><span class="o">.</span><span class="n">to_a</span> <span class="c1"># =&gt; [3, 2, 1]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That was pretty easy. Let&rsquo;s take a closer look at what we&rsquo;ve done: taken a binary function <code>CONS</code> and wrapped it in an anonymous binary function <code>-&gt; (acc, x) { ... }</code>, the body of which simply calls <code>CONS</code> with the arguments flipped. This is such a common way of composing functions that Haskell includes it as a function called <code>flip</code> (<code>(a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c</code>).</p>
+
+<p>Here&rsquo;s how it looks in Ruby:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="no">FLIP</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="p">{</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="n">f</span><span class="o">[</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">]</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>FLIP</code> is a function that takes a binary function <code>f</code> and <strong>returns a new function</strong> that takes two arguments, which it then applies in reverse order to <code>f</code>. This allows us to change <code>-&gt; (acc, x) { CONS[x, acc] }</code> into <code>FLIP[CONS]</code>, which handily sort of describes what we&rsquo;re doing in <code>reverse</code> (but that&rsquo;s just a semantic coincidence).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">reverse</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="no">CONS</span><span class="o">]</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">reverse</span><span class="o">.</span><span class="n">to_a</span> <span class="c1">#=&gt; [3, 2, 1]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>2.6 Concat and Flatten</h3>
+
+<p><em>I&rsquo;m including both of these in the same section because the terminology may get confusing. In Haskell, <code>concat</code> flattens a list of lists, where in Ruby, it connects one array to another (same as <code>ary_a + ary_b</code>). Since we&rsquo;re writing Ruby, I&rsquo;ll stick with the Ruby definitions.</em></p>
+
+<p><code>concat</code> is a method that takes another list and appends its contents to the end of the receiver list. But since we have defined our <code>CONS</code> function in terms of <em>pre</em>pending, let&rsquo;s think of it like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="mi">1</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="mi">4</span> <span class="p">:</span> <span class="mi">5</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">:</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">1</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="mi">3</span> <span class="p">:</span> <span class="mi">4</span> <span class="p">:</span> <span class="mi">5</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">:</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">1</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="mi">4</span> <span class="p">:</span> <span class="mi">5</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">:</span> <span class="o">[]</span>
+</span><span class='line'><span class="o">[]</span> <span class="o">-----</span> <span class="mi">1</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="mi">4</span> <span class="p">:</span> <span class="mi">5</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">:</span> <span class="o">[]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We don&rsquo;t actually have a way to pull out the second-from-last item in a linked list, so we&rsquo;ll need to reverse the first list. Then we can successively prepend each item in the first list to the front of the second list (the second list can be used as the <code>init</code> argument to a fold).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">other_list</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">reverse</span><span class="o">.</span><span class="n">foldl</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="no">CONS</span><span class="o">[</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="o">]</span> <span class="p">},</span> <span class="n">other_list</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That looks suspiciously familiar, as if the folding function were identical to our initial pass at <code>reverse</code> (because it is). Since we reverse the first list to begin with, however, everything works out to the original order in the end. Simplifying:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">other_list</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">reverse</span><span class="o">.</span><span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="no">CONS</span><span class="o">]</span><span class="p">,</span> <span class="n">other_list</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="o">]</span><span class="p">))</span><span class="o">.</span><span class="n">to_a</span> <span class="c1">#=&gt; [1, 2, 3, 4, 5, 6]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>flatten</code> can be thought of in similar terms, though instead of <code>CONS</code>ing individual elements to a second list, we will <code>concat</code> a list of lists together. Since <code>concat</code> is a ruby method rather than a proc object, we&rsquo;ll need to turn it into a binary proc before passing it to <code>FLIP</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">flatten</span>
+</span><span class='line'>    <span class="n">reverse</span><span class="o">.</span><span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="ss">:concat</span><span class="o">.</span><span class="n">to_proc</span><span class="o">]</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">list_of_lists</span> <span class="o">=</span> <span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="o">]</span><span class="p">,</span> <span class="o">[</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="o">]</span><span class="p">,</span> <span class="o">[</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">9</span><span class="o">]].</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">ary</span><span class="o">|</span> <span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="n">ary</span><span class="p">)</span> <span class="p">})</span>
+</span><span class='line'><span class="n">list_of_lists</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">to_a</span> <span class="c1"># =&gt; [1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><em>Note: this isn&rsquo;t quite like Ruby&rsquo;s <code>flatten</code>, in that it will only flatten 1 level for each call, and will only work on lists where each level is homogenous, meaning valid Ruby arrays like <code>[[1, 2, 3], 4, 5, 6]</code> wouldn&rsquo;t work correctly.</em></p>
+
+<h3>2.7 Select</h3>
+
+<p>Known as <code>filter</code> in Haskell, <code>select</code> returns a sublist of the receiver by only including objects that satisfy some predicate function: <code>(a -&gt; Bool) -&gt; [a] -&gt; [a]</code>. This is fairly simple to define in terms of <code>CONS</code> using a ternary operation:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">select</span><span class="p">(</span><span class="o">&amp;</span><span class="n">func</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">foldr</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="p">)</span> <span class="p">{</span> <span class="n">func</span><span class="o">[</span><span class="n">x</span><span class="o">]</span> <span class="p">?</span> <span class="no">CONS</span><span class="o">[</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="o">]</span> <span class="p">:</span> <span class="n">acc</span> <span class="p">},</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Element</span><span class="o">.</span><span class="n">from_a</span><span class="p">(</span><span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">&amp;</span><span class="ss">:even?</span><span class="p">)</span><span class="o">.</span><span class="n">to_a</span> <span class="c1"># =&gt; [2, 4]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Or: &ldquo;If <code>x</code> satisfies the function <code>f</code>, prepend it to the list, otherwise, just return the list.&rdquo; Again, we can take advantage of Ruby&rsquo;s built-in <code>to_proc</code> functionality to use pre-defined predicate methods (like <code>:even?</code>) in our functional system.</p>
+
+<h3>2.8 <code>to_a</code>, redux</h3>
+
+<p>Remember way back toward the beginning of this article, I mentioned that <code>to_a</code> was a temporary method? That&rsquo;s because it&rsquo;s recursively defined, and we&rsquo;ve worked hard to eliminate explicit recursion from every function except the folds. Luckily, Ruby&rsquo;s <code>Array</code> has an instance method that works sort of like <code>CONS</code> in reverse, so as we use <code>foldl</code> to shift values off the front of the linked list, we can <code>push</code> them directly onto the back of a native Ruby array:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="mi">1</span> <span class="p">:</span> <span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="o">[]</span>
+</span><span class='line'><span class="mi">2</span> <span class="p">:</span> <span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="o">[</span><span class="mi">1</span><span class="o">]</span>
+</span><span class='line'><span class="mi">3</span> <span class="p">:</span> <span class="o">[]</span> <span class="o">-----</span> <span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">]</span>
+</span><span class='line'><span class="o">[]</span> <span class="o">-----</span> <span class="o">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we convert <code>push</code> to a proc, it&rsquo;ll work with <code>foldl</code></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="ss">:push</span><span class="o">.</span><span class="n">to_proc</span><span class="p">,</span> <span class="o">[]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Null</span>
+</span><span class='line'>  <span class="c1"># delete to_a! The recursion terminates in `foldl`.</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h1>3. The Complete List</h1>
+
+<p>Here&rsquo;s the complete functional linked list implementation. I&rsquo;ve updated a few methods to make the exercism tests pass (<code>Element::to_a</code>, <code>Element::from_a</code>, and <code>Null#nil?</code>). I&rsquo;ve also made <code>Null</code> a subclass of <code>Element</code>, so it responds to all of the methods we defined (this necessitates a no-op for <code>initialize</code>).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Element</span>
+</span><span class='line'>  <span class="no">CONS</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="kp">new</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'>  <span class="no">FLIP</span> <span class="o">=</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="p">{</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="n">f</span><span class="o">[</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">]</span> <span class="p">}</span> <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">class</span> <span class="o">&lt;&lt;</span> <span class="nb">self</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">to_a</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+</span><span class='line'>      <span class="nb">Array</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">from_a</span><span class="p">(</span><span class="n">ary</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">head</span><span class="p">,</span> <span class="o">*</span><span class="n">tail</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">(</span><span class="n">ary</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">return</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span> <span class="k">unless</span> <span class="n">head</span>
+</span><span class='line'>      <span class="kp">new</span><span class="p">(</span><span class="n">head</span><span class="p">,</span> <span class="n">from_a</span><span class="p">(</span><span class="n">tail</span><span class="p">))</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kp">attr_reader</span> <span class="ss">:datum</span><span class="p">,</span> <span class="ss">:_next</span>
+</span><span class='line'>  <span class="n">alias_method</span> <span class="ss">:next</span><span class="p">,</span> <span class="ss">:_next</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">datum</span><span class="p">,</span> <span class="n">_next</span> <span class="o">=</span> <span class="kp">nil</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@datum</span><span class="p">,</span> <span class="vi">@_next</span> <span class="o">=</span> <span class="n">datum</span><span class="p">,</span> <span class="p">(</span><span class="n">_next</span> <span class="o">||</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldl</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">_next</span><span class="o">.</span><span class="n">foldl</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">func</span><span class="o">[</span><span class="n">init</span><span class="p">,</span> <span class="n">datum</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldr</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">func</span><span class="o">[</span><span class="n">datum</span><span class="p">,</span> <span class="n">_next</span><span class="o">.</span><span class="n">foldr</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span><span class="o">]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">to_a</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="ss">:push</span><span class="o">.</span><span class="n">to_proc</span><span class="p">,</span> <span class="o">[]</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">map</span><span class="p">(</span><span class="o">&amp;</span><span class="n">func</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">foldr</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">acc</span><span class="p">)</span> <span class="p">{</span> <span class="no">CONS</span><span class="o">[</span><span class="n">func</span><span class="o">[</span><span class="n">x</span><span class="o">]</span><span class="p">,</span> <span class="n">acc</span><span class="o">]</span> <span class="p">},</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">reverse</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="no">CONS</span><span class="o">]</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">other_list</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">reverse</span><span class="o">.</span><span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="no">CONS</span><span class="o">]</span><span class="p">,</span> <span class="n">other_list</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">length</span>
+</span><span class='line'>    <span class="n">foldl</span> <span class="o">-&gt;</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="p">{</span> <span class="n">acc</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">},</span> <span class="mi">0</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">flatten</span>
+</span><span class='line'>    <span class="n">reverse</span><span class="o">.</span><span class="n">foldl</span> <span class="no">FLIP</span><span class="o">[</span><span class="ss">:concat</span><span class="o">.</span><span class="n">to_proc</span><span class="o">]</span><span class="p">,</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">select</span><span class="p">(</span><span class="o">&amp;</span><span class="n">func</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">foldr</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="p">)</span> <span class="p">{</span> <span class="n">func</span><span class="o">[</span><span class="n">x</span><span class="o">]</span> <span class="p">?</span> <span class="no">CONS</span><span class="o">[</span><span class="n">x</span><span class="p">,</span> <span class="n">acc</span><span class="o">]</span> <span class="p">:</span> <span class="n">acc</span> <span class="p">},</span> <span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Null</span> <span class="o">&lt;</span> <span class="no">Element</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="o">*</span><span class="p">);</span>       <span class="k">end</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">nil?</span><span class="p">;</span>           <span class="kp">true</span> <span class="k">end</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldl</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">init</span><span class="p">);</span> <span class="n">init</span> <span class="k">end</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">foldr</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">init</span><span class="p">);</span> <span class="n">init</span> <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h1>4. Next Steps!</h1>
+
+<p>As a challenge to the reader, try implementing some additional functions (<code>any?</code>, <code>include?</code>, <code>all?</code>, <code>take</code>, and <code>drop</code> would be good choices).</p>
+
+<p>There&rsquo;s a lot of material I didn&rsquo;t cover:</p>
+
+<ul>
+<li>immutability (though none of the code here mutates anything, so it&rsquo;s immutable in spirit)</li>
+<li>type safety (this would be a lot more difficult to deal with in Ruby)</li>
+<li>laziness, tail-call optimization and related topics. I may deal with this in a future article. We&rsquo;ll see.</li>
+</ul>
+
+
+<p>For now, I hope this has been enough to pique your curiosity about Haskell and FP in general. If you&rsquo;re interested in learning more, I highly recommend <a href="http://learnyouahaskell.com/">Learn You a Haskell for Great Good</a> to learn the mechanics of the language, and then check out the exercises on <a href="http://exercism.io">exercism.io</a>. There are a few experienced programmers (and one in particular— thanks @etrepum!) who have been immensely helpful to me in learning how to write idiomatic Haskell. And if nothing else, I hope at least this has revealed a bit of wisdom from other programming paradigms. There&rsquo;s more than one way to skin a monad, as they say (EDIT: no one says that).</p>
 </div>
   
   
