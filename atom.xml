@@ -4,7 +4,7 @@
   <title><![CDATA[zvkemp]]></title>
   <link href="http://zvkemp.github.io/atom.xml" rel="self"/>
   <link href="http://zvkemp.github.io/"/>
-  <updated>2014-05-01T07:43:02-07:00</updated>
+  <updated>2014-12-15T10:40:16-08:00</updated>
   <id>http://zvkemp.github.io/</id>
   <author>
     <name><![CDATA[Zach Kemp]]></name>
@@ -12,6 +12,15 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Introduction to Functional Programming in Ruby: Linked Lists]]></title>
+    <link href="http://zvkemp.github.io/blog/2014/12/15/introduction-to-functional-programming-in-ruby-linked-lists/"/>
+    <updated>2014-12-15T10:40:16-08:00</updated>
+    <id>http://zvkemp.github.io/blog/2014/12/15/introduction-to-functional-programming-in-ruby-linked-lists</id>
+    <content type="html"><![CDATA[
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Reimplementing Ruby's Hash Using Binary Search Trees]]></title>
